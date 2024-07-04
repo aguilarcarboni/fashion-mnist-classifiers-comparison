@@ -231,8 +231,6 @@ def RandomForest():
 
 def findFeatureImportances(best_model):
 
-    print(best_model['model'])
-
     # Display the feature importances as an image
     coef_img = best_model['model'].feature_importances_.reshape(28, 28)
     plt.figure()
@@ -257,7 +255,6 @@ def findFeatureImportances(best_model):
         plt.title("Predicted: "+str(model['pred'][x])+" Correct: "+str(test_labels[x]))
         plt.show()
 
-centroid_image = centroid_image.reshape(784)
 best_model = {'accuracy': 0, 'model':None, 'pred': None}
 
 model = NaiveBayes()
