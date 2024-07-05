@@ -9,7 +9,7 @@ import pandas as pd
 import os
 
 from sklearn import metrics, linear_model, preprocessing, ensemble
-from pickle_helper import get_mnist_data_and_labels
+from mnist_helper import get_mnist_data_and_labels
 
 def SoftMaxRegression(train_data, train_labels, test_labels, test_data):
 

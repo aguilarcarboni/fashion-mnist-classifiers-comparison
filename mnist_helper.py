@@ -1,5 +1,5 @@
 import numpy as np
-import pickle
+import skimage
 
 def get_mnist_data_and_labels(images_filename, labels_filename):
     images_file = open(images_filename, "rb")
@@ -32,3 +32,24 @@ def get_mnist_data_and_labels(images_filename, labels_filename):
         images_file.close()
         labels_file.close()
         print("Complete")
+
+
+
+def resize_data(original_size, target_size, data):
+
+    length = data.shape[0]
+
+    # Resize all the training images
+    data_resized = np.zeros( (length, target_size**2) )
+    for img_idx in range(length):
+
+        # Get the image
+        img = data[img_idx].reshape(original_size,original_size)
+
+        # Resize the image
+        img_resized = skimage.transform.resize(img, (target_size,target_size), anti_aliasing=True)
+
+        # Put it back in vector form
+        data_resized[img_idx] = img_resized.reshape(1, target_size**2)
+
+    return data_resized
