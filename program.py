@@ -9,27 +9,78 @@ import pandas as pd
 import os
 
 from sklearn import metrics, linear_model, preprocessing, ensemble
+import skimage
+
 from pickle_helper import get_mnist_data_and_labels
 
+
+from naive_bayes import NaiveBayes
+from ridge import RidgeRegression
+from softmax import SoftMaxRegression
+from random_forest import RandomForest
+
+def findFeatureImportances(best_model):
+
+    num_displayed = 0
+    x = 0
+
+    fig, axes = plt.subplots(2, 5, figsize=(15, 6))
+    fig.suptitle('10 Misclassifications')
+
+    while (num_displayed < 10):
+        x += 1
+
+        # Skip correctly predicted 
+        if (model['pred'][x] == test_labels[x]):
+            continue
+
+        # Display the images
+        image = test_data[x].reshape(28,28)
+        ax = axes[num_displayed // 5, num_displayed % 5]
+        ax.imshow(image, cmap='gray')
+        ax.set_title("Predicted: "+str(model['pred'][x])+" Correct: "+str(test_labels[x]))
+        ax.axis('off')
+
+        num_displayed += 1
+
+    plt.tight_layout()
+    plt.show()
+
+    # Display the feature importances as an image
+    coef_img = best_model['model'].feature_importances_.reshape(28, 28)
+    plt.figure()
+    plt.title('Feature importances as an image.')
+    plt.imshow(coef_img, cmap="gray_r")
+    plt.show()
+
 """
-Step 1: Pre-process the raw data files and convert them into a format suitable for Scikit-Learn classifiers
+Step 1: Pre-process the raw data files and convert 
+them into a format suitable for Scikit-Learn classifiers
 """
 
 # Load the training and test data from the Pickle file (or from other file if Pickle file does not exist)
-if (os.path.exists("mnist_dataset.pickle")):
+if (os.path.exists("fashion/dataset.pickle")):
 
     print("Reading pickle file containing data")
-    with open("mnist_dataset.pickle", "rb") as f:
+    with open("fashion/dataset.pickle", "rb") as f:
         train_data, train_labels, test_data, test_labels = pickle.load(f)
+
 else:
 
     print("Reading training dataset")
-    train_data, train_labels = get_mnist_data_and_labels("train-images.idx3-ubyte", "train-labels.idx1-ubyte")
+    train_data, train_labels = get_mnist_data_and_labels("fashion/train-images.idx3-ubyte", "fashion/train-labels.idx1-ubyte")
     train_size = train_data.shape[0]
 
     print("Reading test dataset")
-    test_data, test_labels = get_mnist_data_and_labels("t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte")
+    test_data, test_labels = get_mnist_data_and_labels("fashion/t10k-images.idx3-ubyte", "fashion/t10k-labels.idx1-ubyte")
     test_size = test_data.shape[0]
+
+    # Archive the data into a pickle file
+    print('Dumping Pickle file')
+    with open("fashion/dataset.pickle", 'wb') as f:
+        pickle.dump([train_data, train_labels, test_data, test_labels],f, pickle.HIGHEST_PROTOCOL)
+    
+    print("Complete")
 
 # Standarize scale
 max_value = train_data.max()
@@ -42,7 +93,8 @@ print("Training dataset size: ", train_data.shape)
 print("Test dataset size: ", test_data.shape)
 
 """
-Step 2: Explore the dataset (quantity of examples of each class, distribution of pixel values, centroid images: overall and per-class)
+Step 2: Explore the dataset (quantity of examples of each class, 
+distribution of pixel values, centroid images: overall and per-class)
 """
 
 # Quantity of examples of each class
@@ -54,7 +106,6 @@ center = (bins[:-1] + bins[1:]) / 2
 width = np.diff(bins)
 ax.bar(center, hist, width=width, color=bar_colors)
 plt.show()
-
 
 # Distribution of pixel values
 hist, bins = np.histogram(train_data, bins=50)
@@ -99,180 +150,62 @@ Step 3: Attempt multiple classifiers (at least 4).  You are free to choose which
 You should attempt to optimize the available parameters of each classifier to get the best results.
 """
 
-def NaiveBayes():
-
-    print('Training Naive Bayes model on dataset.')
-    num_pixels = train_data.shape[1]
-    num_test_cases = len(test_labels)
-
-    # Loop through every class
-    prob_class_img = np.zeros( (num_classes, num_pixels) )
-
-    for class_index in range(num_classes):
-
-        # Create an image of average pixels for this class
-        mask = train_labels==class_index
-        train_data_this_class = np.compress(mask, train_data, axis=0)
-
-        class_centroid_image = np.mean(train_data_this_class, 0)
-
-        # Compute probability of class for each pixel
-        prob_class_img[class_index] = class_centroid_image / (centroid_image+.0001) / num_classes
-
-    # Now use the probability images to estimate the probability of each class
-    # in new images
-    pred = np.zeros(num_test_cases)
-
-    # Predict all test images
-    for text_index in range(num_test_cases):
-
-        test_img = test_data[text_index]
-
-        prob_class = []
-        for classidx in range(num_classes):
-            test_img_prob_class = test_img * prob_class_img[classidx]
-            # Average the probabilities of all pixels
-            prob_class.append( np.mean(test_img_prob_class) )
-
-        # Pick the largest
-        pred[text_index] = prob_class.index(max(prob_class))
-
-    # Accuracy, precision & recall
-    print("Accuracy:   {:.3f}".format(metrics.accuracy_score(test_labels, pred)))
-    print("Precision:  {:.3f}".format(metrics.precision_score(test_labels, pred, average='weighted')))
-    print("Recall:     {:.3f}".format(metrics.recall_score(test_labels, pred, average='weighted')))
-
-    return {'accuracy': metrics.accuracy_score(test_labels, pred), 'model':None, 'pred': pred}
-
-def RidgeRegression():
-    print('Training Ridge Regression model on dataset.')
-
-    # One hot encode the data
-    encoder = preprocessing.OneHotEncoder(categories='auto', sparse_output=False)
-    train_labels_onehot = encoder.fit_transform(train_labels.reshape(-1, 1))
-
-    test_labels_onehot = encoder.transform(test_labels.reshape(-1, 1))
-    num_classes = len(encoder.categories_[0])
-
-    # Train a linear regression classifier
-    model = linear_model.Ridge(alpha=0.5)
-    model.fit(train_data, train_labels_onehot)
-
-    # Predict the probabilities of each class
-    pred_proba = model.predict(test_data)
-
-    # Pick the maximum
-    pred = np.argmax(pred_proba, axis=1).astype("uint8")
-
-    # Accuracy, precision & recall
-    print("Accuracy:   {:.3f}".format(metrics.accuracy_score(test_labels, pred)))
-    print("Precision:  {:.3f}".format(metrics.precision_score(test_labels, pred, average='weighted')))
-    print("Recall:     {:.3f}".format(metrics.recall_score(test_labels, pred, average='weighted')))
-
-    # Per-Class Precision & Recall
-    """
-    precision = metrics.precision_score(test_labels, pred, average=None)
-    recall = metrics.recall_score(test_labels, pred, average=None)
-    for n in range(num_classes):
-        print("  Class {}: Precision: {:.3f} Recall: {:.3f}".format(n, precision[n], recall[n]))
-    """
-    return {'accuracy': metrics.accuracy_score(test_labels, pred), 'model':model, 'pred': pred}
-
-def SoftMaxRegression():
-
-    print('Training Soft Max Regression model on dataset.')
-
-    model = linear_model.LogisticRegression(solver='sag', tol=1e-2, max_iter = 50) 
-    model.fit(train_data, train_labels)
-
-    # Make the class predictions
-    pred = model.predict(test_data)
-
-    # Accuracy, precision & recall
-    print("Accuracy:   {:.3f}".format(metrics.accuracy_score(test_labels, pred)))
-    print("Precision:  {:.3f}".format(metrics.precision_score(test_labels, pred, average='weighted')))
-    print("Recall:     {:.3f}".format(metrics.recall_score(test_labels, pred, average='weighted')))
-
-    # Per-Class Precision & Recall
-    precision = metrics.precision_score(test_labels, pred, average=None)
-    recall = metrics.recall_score(test_labels, pred, average=None)
-    num_classes = len(np.unique(train_labels))
-    """
-    for n in range(num_classes):
-        print("  Class {}: Precision: {:.3f} Recall: {:.3f}".format(n, precision[n], recall[n]))
-    """
-    return {'accuracy': metrics.accuracy_score(test_labels, pred), 'model':model, 'pred': pred}
-
-def RandomForest():
-
-    print('Training Random Forest Regression model on dataset.')
-    
-    model = ensemble.RandomForestClassifier(n_estimators = 100, min_samples_leaf = 1e-4) 
-
-    model.fit(train_data, train_labels)
-
-    # Make the class predictions
-    pred = model.predict(test_data)
-
-    # Accuracy, precision & recall
-    print("Accuracy:   {:.3f}".format(metrics.accuracy_score(test_labels, pred)))
-    print("Precision:  {:.3f}".format(metrics.precision_score(test_labels, pred, average='weighted')))
-    print("Recall:     {:.3f}".format(metrics.recall_score(test_labels, pred, average='weighted')))
-
-    # Per-Class Precision & Recall
-    precision = metrics.precision_score(test_labels, pred, average=None)
-    recall = metrics.recall_score(test_labels, pred, average=None)
-    num_classes = len(np.unique(train_labels))
-    """
-    for n in range(num_classes):
-        print("  Class {}: Precision: {:.3f} Recall: {:.3f}".format(n, precision[n], recall[n]))
-    """
-    return {'accuracy': metrics.accuracy_score(test_labels, pred), 'model':model, 'pred': pred}
-
-def findFeatureImportances(best_model):
-
-    # Display the feature importances as an image
-    coef_img = best_model['model'].feature_importances_.reshape(28, 28)
-    plt.figure()
-    plt.imshow(coef_img, cmap="gray_r")
-    plt.show()
-
-    num_displayed = 0
-    x = 0
-    while (num_displayed < 10):
-        x += 1
-
-        # Skip correctly predicted 
-        if (model['pred'][x] == test_labels[x]):
-            continue
-
-        num_displayed += 1
-
-        # Display the images
-        image = test_data[x].reshape(28,28)
-        plt.figure()
-        plt.imshow(image, cmap="gray_r")
-        plt.title("Predicted: "+str(model['pred'][x])+" Correct: "+str(test_labels[x]))
-        plt.show()
-
 best_model = {'accuracy': 0, 'model':None, 'pred': None}
 
-model = NaiveBayes()
+"""
+model = NaiveBayes(train_data, train_labels, test_labels, test_data)
 if model['accuracy'] > best_model['accuracy']:
     best_model = model
 
-model = RidgeRegression()
+model = RidgeRegression(train_data, train_labels, test_labels, test_data)
 if model['accuracy'] > best_model['accuracy']:
     best_model = model
 
-model = SoftMaxRegression()
+model = SoftMaxRegression(train_data, train_labels, test_labels, test_data)
+if model['accuracy'] > best_model['accuracy']:
+    best_model = model
+"""
+    
+results = []
+model = RandomForest(train_data, train_labels, test_labels, test_data)
 if model['accuracy'] > best_model['accuracy']:
     best_model = model
 
-model = RandomForest()
-if model['accuracy'] > best_model['accuracy']:
-    best_model = model
-
-print(best_model)
-
+print('Best model:', best_model)
+results.append(best_model['accuracy'])
 findFeatureImportances(best_model)
+  
+def resizeData(original_size, target_size, data):
+
+    length = data.shape[0]
+
+    # Resize all the training images
+    data_resized = np.zeros( (length, target_size**2) )
+    for img_idx in range(length):
+
+        # Get the image
+        img = data[img_idx].reshape(original_size,original_size)
+
+        # Resize the image
+        img_resized = skimage.transform.resize(img, (target_size,target_size), anti_aliasing=True)
+
+        # Put it back in vector form
+        data_resized[img_idx] = img_resized.reshape(1, target_size**2)
+
+    return data_resized
+
+target_sizes = [12, 10, 8, 6]
+
+for target_size in target_sizes[1:]:
+    train_data_resized = resizeData(28, 12, train_data)
+    test_data_resized = resizeData(28, 12, test_data)
+    print('Successfully resized data to: ', target_size)
+
+    model = RandomForest(train_data_resized, train_labels, test_labels, test_data_resized)
+    results.append(model['accuracy'])
+
+plt.figure()
+plt.plot(results, target_sizes)
+plt.title('Accuracy vs resolution of images')
+plt.axis('off')
+plt.show()

@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 def get_mnist_data_and_labels(images_filename, labels_filename):
     images_file = open(images_filename, "rb")
@@ -22,9 +23,10 @@ def get_mnist_data_and_labels(images_filename, labels_filename):
                 data[item][value] = int.from_bytes(images_file.read(1),
                                                    byteorder="big")
             labels.append(int.from_bytes(labels_file.read(1), byteorder="big"))
+            
         # Convert to NumPy arrays
-        data = np.array(data)
-        labels = np.array(labels)
+        data = np.array(data).astype(np.uint8)
+        labels = np.array(labels).astype(np.uint8)
         return data, labels
     finally:
         images_file.close()
