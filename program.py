@@ -58,14 +58,11 @@ Step 2: Explore the dataset (quantity of examples of each class,
 distribution of pixel values, centroid images: overall and per-class)
 """
 
-# Plot uantity of examples of each class
-fig, ax = plt.subplots()
-bar_colors = ['tab:red', 'tab:blue']
-
-hist, bins = np.histogram(train_labels, bins=20)
+# Plot quantity of examples of each class
+hist, bins = np.histogram(test_labels, bins=10)
 center = (bins[:-1] + bins[1:]) / 2
 width = np.diff(bins)
-ax.bar(center, hist, width=width, color=bar_colors)
+plt.bar(center, hist, align='center', width=width, color=['red', 'blue'])
 plt.show()
 
 # Plot distribution of pixel values
