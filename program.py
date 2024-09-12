@@ -9,10 +9,10 @@ import os
 
 from mnist_helper import get_mnist_data_and_labels, resize_data
 
-from naive_bayes import NaiveBayes
-from ridge import RidgeRegression
-from softmax import SoftMaxRegression
-from random_forest import RandomForest
+from models.naive_bayes import NaiveBayes
+from models.ridge import RidgeRegression
+from models.softmax import SoftMaxRegression
+from models.random_forest import RandomForest
 
 """
 Step 1: Pre-process the raw data files and convert 
