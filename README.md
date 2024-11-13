@@ -1,6 +1,6 @@
 # Fashion MNIST Dataset Classifier Comparisons
 
-## CS3368: Introduction to Artificial Intelligence - Project 1
+## Introduction to Artificial Intelligence
 
 ### Description
 
